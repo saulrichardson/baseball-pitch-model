@@ -18,6 +18,7 @@ This folder holds the “how to run it” and “how it works” material. The r
 - `docs/reporting.md` — writeup-ready metrics + calibration + baselines + slices
 - `docs/simulation.md` — replay vs rollout, count modes, drift measurement
 - `docs/profiling.md` — pitcher policy tables + grouping keys
+- `docs/visuals.md` — generate SVG pitcher visuals
 
 ## Deployment
 
@@ -26,4 +27,3 @@ This folder holds the “how to run it” and “how it works” material. The r
 ## Narrative writeup
 
 - `docs/writeup.md` — deeper technical narrative + example results
-

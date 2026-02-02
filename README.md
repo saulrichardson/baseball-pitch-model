@@ -51,6 +51,18 @@ Open-loop rollouts (50 held-out games) predictably drop due to drift:
 | rollout (heads) | 0.402 | 0.830 |
 | rollout (clamp count) | 0.403 | 0.835 |
 
+## Pitcher profile example (granular)
+
+Example pitcher: **Gerrit Cole** (MLBAM `543037`).
+
+Count-policy heatmap (top pitch by count; predicted vs empirical):
+
+![Gerrit Cole count policy](docs/assets/profile_543037_count_policy.svg)
+
+Zone heatmaps for two pitch types (FF + SL; predicted vs empirical):
+
+![Gerrit Cole zone heatmaps](docs/assets/profile_543037_zone_heatmaps.svg)
+
 ## Docs
 
 - Start here: `docs/README.md`

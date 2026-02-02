@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="574" height="332" viewBox="0 0 574 332">
+<rect x="0" y="0" width="574" height="332" fill="#ffffff"/>
+<text x="22" y="44" font-size="18" font-weight="800" fill="#0f172a">Pitcher profile — 543037</text>
+<text x="22" y="66" font-size="12" font-weight="600" fill="#475569">balls × strikes grid (top = 2 strikes)</text>
+<text x="22" y="86" font-size="12" font-weight="800" fill="#0f172a">Predicted top pitch</text>
+<text x="304" y="86" font-size="12" font-weight="800" fill="#0f172a">Empirical top pitch</text>
+<rect x="22" y="96" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="53.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="78" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="84" y="96" width="62" height="62" fill="#84d1f4" stroke="#cbd5e1" />
+<text x="115.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="115.0" y="142" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.42</text>
+<text x="140" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=10</text>
+<rect x="146" y="96" width="62" height="62" fill="#7ecff3" stroke="#cbd5e1" />
+<text x="177.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="177.0" y="142" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.45</text>
+<text x="202" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=10</text>
+<rect x="208" y="96" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="239.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="264" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="22" y="158" width="62" height="62" fill="#6fc9f2" stroke="#cbd5e1" />
+<text x="53.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="53.0" y="204" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.52</text>
+<text x="78" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=34</text>
+<rect x="84" y="158" width="62" height="62" fill="#82d1f4" stroke="#cbd5e1" />
+<text x="115.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="115.0" y="204" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.43</text>
+<text x="140" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=21</text>
+<rect x="146" y="158" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="177.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="202" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="208" y="158" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="239.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="264" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="22" y="220" width="62" height="62" fill="#61c4f1" stroke="#cbd5e1" />
+<text x="53.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="53.0" y="266" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.60</text>
+<text x="78" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=449</text>
+<rect x="84" y="220" width="62" height="62" fill="#5ac1f0" stroke="#cbd5e1" />
+<text x="115.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="115.0" y="266" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.63</text>
+<text x="140" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=37</text>
+<rect x="146" y="220" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="177.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="202" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="208" y="220" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="239.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="264" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="304" y="96" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="335.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="360" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="366" y="96" width="62" height="62" fill="#60c4f0" stroke="#cbd5e1" />
+<text x="397.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="397.0" y="142" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.60</text>
+<text x="422" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=10</text>
+<rect x="428" y="96" width="62" height="62" fill="#74cbf2" stroke="#cbd5e1" />
+<text x="459.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="459.0" y="142" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.50</text>
+<text x="484" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=10</text>
+<rect x="490" y="96" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="521.0" y="122" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="546" y="150" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="304" y="158" width="62" height="62" fill="#56c0f0" stroke="#cbd5e1" />
+<text x="335.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="335.0" y="204" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.65</text>
+<text x="360" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=34</text>
+<rect x="366" y="158" width="62" height="62" fill="#79cdf3" stroke="#cbd5e1" />
+<text x="397.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="397.0" y="204" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.48</text>
+<text x="422" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=21</text>
+<rect x="428" y="158" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="459.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="484" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="490" y="158" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="521.0" y="184" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="546" y="212" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="304" y="220" width="62" height="62" fill="#62c4f1" stroke="#cbd5e1" />
+<text x="335.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="335.0" y="266" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.59</text>
+<text x="360" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=449</text>
+<rect x="366" y="220" width="62" height="62" fill="#4bbcef" stroke="#cbd5e1" />
+<text x="397.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">FF</text>
+<text x="397.0" y="266" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">0.70</text>
+<text x="422" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=37</text>
+<rect x="428" y="220" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="459.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="484" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<rect x="490" y="220" width="62" height="62" fill="#ffffff" stroke="#cbd5e1" />
+<text x="521.0" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">—</text>
+<text x="546" y="274" text-anchor="end" font-size="10" font-weight="600" fill="#475569">n=0</text>
+<text x="53.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">0 balls</text>
+<text x="335.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">0 balls</text>
+<text x="115.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">1 balls</text>
+<text x="397.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">1 balls</text>
+<text x="177.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">2 balls</text>
+<text x="459.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">2 balls</text>
+<text x="239.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">3 balls</text>
+<text x="521.0" y="300" text-anchor="middle" font-size="11" font-weight="700" fill="#475569">3 balls</text>
+<text x="12" y="131.0" text-anchor="end" font-size="11" font-weight="700" fill="#475569">2 strikes</text>
+<text x="294" y="131.0" text-anchor="end" font-size="11" font-weight="700" fill="#475569">2 strikes</text>
+<text x="12" y="193.0" text-anchor="end" font-size="11" font-weight="700" fill="#475569">1 strikes</text>
+<text x="294" y="193.0" text-anchor="end" font-size="11" font-weight="700" fill="#475569">1 strikes</text>
+<text x="12" y="255.0" text-anchor="end" font-size="11" font-weight="700" fill="#475569">0 strikes</text>
+<text x="294" y="255.0" text-anchor="end" font-size="11" font-weight="700" fill="#475569">0 strikes</text>
+</svg>
