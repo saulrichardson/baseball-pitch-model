@@ -22,6 +22,7 @@ You can:
 - train transformer models on large Statcast datasets (streaming parquet; GPU-friendly),
 - generate writeup-ready reports (calibration + slice metrics + strong empirical baselines),
 - run open‑loop rollouts on held‑out games to measure drift,
+- generate **pitch‑by‑pitch JSONL traces** for replay/rollout (for debugging and storytelling),
 - build pitcher “policy tables” (what a pitcher throws next by count/situation),
 - export bundles + serve predictions via FastAPI.
 
@@ -30,6 +31,7 @@ You can:
 - **Sequence policy modeling**: the transformer learns “AB context”, not just pitcher priors.
 - **Probabilistic location**: location is scored with `loc_nll` (proper scoring rule), not only RMSE.
 - **Open-loop rollouts**: the repo can simulate held-out games to study drift (`replay` vs `rollout`).
+- **Pitch-by-pitch replay traces**: emit per‑pitch top‑K probabilities + location scores for a single game.
 - **Pitcher policies**: export per-pitcher conditional “what do they throw next in this situation?” tables.
 - **Writeup-ready evaluation**: calibration + slice metrics + strong empirical baselines.
 
@@ -85,5 +87,6 @@ Zone heatmaps: batter‑box location density for specific pitch types (here: FF 
 - Start here: `docs/README.md`
 - Setup: `docs/setup.md`
 - Greene workflows: `docs/workflows-greene.md`
+- Simulation + replay traces: `docs/simulation.md`
 - Visual generation: `docs/visuals.md`
 - Narrative writeup: `docs/writeup.md`
