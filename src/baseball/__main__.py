@@ -10,6 +10,7 @@ from baseball.cli.profile import add_profile_parser
 from baseball.cli.report import add_report_parser
 from baseball.cli.simulate import add_simulate_parser
 from baseball.cli.serve import add_serve_parser
+from baseball.cli.trace import add_trace_parser
 from baseball.cli.train import add_train_parser
 from baseball.cli.viz import add_viz_parser
 
@@ -31,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_simulate_parser(subparsers)
     add_serve_parser(subparsers)
     add_viz_parser(subparsers)
+    add_trace_parser(subparsers)
 
     return parser
 

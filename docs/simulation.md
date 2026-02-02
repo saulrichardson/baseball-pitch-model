@@ -1,60 +1,64 @@
 # Simulation (replay vs rollout)
 
-The `simulate` command exists to measure out-of-sample behavior in *game-like* settings, not just teacher forcing.
+The `simulate` command exists to answer a simple question:
+
+> Does the model still behave sensibly when you run it forward through real games?
+
+That’s different from the usual “teacher-forced” evaluation where the model always gets the **true** game state.
 
 Implementation: `src/baseball/simulate.py`
 
-## Modes
+## Two modes: `replay` vs `rollout`
 
-- `--mode replay`
-  - Teacher-forced.
-  - Uses the real pre-pitch state from the dataset every step.
+### `--mode replay` (teacher-forced)
 
-- `--mode rollout`
-  - Open-loop.
-  - Feeds the model its predicted next-state into the next pitch prediction.
-  - Errors compound; accuracy drops are expected and are the point of the experiment.
+- Uses the real pre‑pitch state from the dataset every step.
+- This isolates **pure next‑pitch prediction** quality:
+  - pitch type (`top‑1`, `top‑3`, log loss)
+  - pitch location (`loc_nll`, RMSE)
+
+### `--mode rollout` (open-loop)
+
+- Feeds the model its predicted next state into the next prediction.
+- Errors compound across time → accuracy drops are expected.
+- This is how you measure **drift**: does the model stay “on-policy” over long sequences?
 
 ## Count evolution (`--count-mode`)
 
-Rollouts can update balls/strikes in different ways:
+In rollout mode, balls/strikes must be updated without peeking at the real next pitch.
 
 - `heads`
-  - Use model next-balls / next-strikes heads directly.
+  - Uses the model’s state heads (`next_balls`, `next_strikes`, `pa_end`) directly.
 
 - `clamp`
-  - Simple constraints: no decreases, +1 max, and only one of balls/strikes increments.
-  - Works even without a `description_id` head.
+  - Minimal constraints for count sanity: no decreases, +1 max, and only one of balls/strikes increments per pitch.
+  - Works even without an outcome (`description_id`) head.
 
 - `rules`
-  - Deterministic transitions from predicted Statcast `description` token.
-  - Requires outcome-aware models / vocab.
+  - Deterministic count transitions from predicted Statcast `description`.
+  - Requires outcome-aware models / vocab (e.g. `transformer_mdn_state_mt`).
 
 - `constrained`
-  - Scores rules-consistent transitions vs head transitions and takes the better one.
+  - Chooses the better of `heads` vs `rules` under hard constraints.
   - Requires outcome-aware models / vocab.
 
-## Example
+## Pitch-by-pitch replay (visual)
 
-```bash
-python -m baseball simulate \
-  --run-id <RUN_ID> \
-  --split valid \
-  --mode rollout \
-  --count-mode clamp \
-  --max-games 50 \
-  --device cuda
-```
+This repo can emit a per‑pitch trace (JSONL) and then render it into a readable “replay strip”.
 
-## Pitch-by-pitch replay / trace
+Each pitch panel shows:
+- the pre‑pitch state (count / inning / bases),
+- top pitch‑type probabilities,
+- actual location (dot) vs predicted mean (cross),
+- per‑pitch `loc_nll`.
 
-`simulate` can also emit a **pitch-by-pitch JSONL trace** (one JSON object per pitch) containing:
-- the current state used by the model (teacher-forced in `replay`, simulated in `rollout`)
-- the actual pitch type + location
-- the model’s top‑K pitch type probabilities
-- the model’s predicted location mean + per-pitch location NLL
+![Pitch-by-pitch replay strip](assets/replay_example.svg)
 
-Example: replay a single game and write a trace:
+The HTML version is in `docs/examples/replay_game716494_example.html` (open locally in a browser).
+
+## How to generate a trace
+
+Replay a single held‑out game and write a JSONL trace:
 
 ```bash
 python -m baseball simulate \
@@ -64,4 +68,36 @@ python -m baseball simulate \
   --game-pk <GAME_PK> \
   --events-out /tmp/pitch_trace.jsonl \
   --events-topk 5
+```
+
+Render that JSONL into an HTML report:
+
+```bash
+python -m baseball trace \
+  --events /tmp/pitch_trace.jsonl \
+  --format html \
+  --out /tmp/replay.html \
+  --max-at-bats 10
+```
+
+Or render a single at‑bat as an embed‑friendly SVG strip:
+
+```bash
+python -m baseball trace \
+  --events /tmp/pitch_trace.jsonl \
+  --format svg \
+  --at-bat 17 \
+  --out /tmp/replay_strip.svg
+```
+
+## Example rollout (scale)
+
+```bash
+python -m baseball simulate \
+  --run-id <RUN_ID> \
+  --split valid \
+  --mode rollout \
+  --count-mode clamp \
+  --max-games 50 \
+  --device cuda
 ```

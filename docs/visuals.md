@@ -43,3 +43,33 @@ Outputs:
 - **Count policy grid**: a 4×3 grid (balls × strikes) where each cell shows the **top pitch type** and its probability.
 - **Zone heatmaps**: strike-zone heatmaps built from profile-group mean locations, smoothed and weighted by pitch-type probability.
 
+## Pitch-by-pitch replay visuals
+
+If you want something more granular than pitcher-level aggregates, generate a **single-game trace** and render it.
+
+1) Produce a JSONL trace (one object per pitch):
+
+```bash
+python -m baseball simulate \
+  --run-id <RUN_ID> \
+  --split valid \
+  --mode replay \
+  --game-pk <GAME_PK> \
+  --events-out /tmp/pitch_trace.jsonl
+```
+
+2) Render either:
+
+- a shareable HTML scroll report:
+
+```bash
+python -m baseball trace --events /tmp/pitch_trace.jsonl --format html --out /tmp/replay.html
+```
+
+- or a single at‑bat SVG “strip” (embed-friendly for GitHub READMEs):
+
+```bash
+python -m baseball trace --events /tmp/pitch_trace.jsonl --format svg --at-bat 17 --out /tmp/replay_strip.svg
+```
+
+See also: `docs/simulation.md` (replay vs rollout, drift, and trace outputs).

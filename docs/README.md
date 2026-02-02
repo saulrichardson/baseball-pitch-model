@@ -27,3 +27,7 @@ This folder holds the “how to run it” and “how it works” material. The r
 ## Narrative writeup
 
 - `docs/writeup.md` — deeper technical narrative + example results
+
+## Examples
+
+- `docs/examples/` — small, shareable artifacts (pitch-by-pitch replay HTML + JSONL snippets)

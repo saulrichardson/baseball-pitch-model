@@ -362,12 +362,20 @@ def simulate(
         events_fp = events_path.open("w", encoding="utf-8")
 
     pitch_id_to_tok: list[str] | None = None
+    pitcher_id_to_tok: list[str] | None = None
+    batter_id_to_tok: list[str] | None = None
     if events_fp is not None:
         pitch_vocab_path = prepared.vocabs_dir / "pitch_type.json"
         if not pitch_vocab_path.exists():
             raise SimulationError(f"--events-out requires pitch type vocab at: {pitch_vocab_path}")
         pitch_vocab = Vocab.load(pitch_vocab_path)
         pitch_id_to_tok = _id_to_token(pitch_vocab)
+        pitcher_vocab_path = prepared.vocabs_dir / "pitcher.json"
+        batter_vocab_path = prepared.vocabs_dir / "batter.json"
+        if pitcher_vocab_path.exists():
+            pitcher_id_to_tok = _id_to_token(Vocab.load(pitcher_vocab_path))
+        if batter_vocab_path.exists():
+            batter_id_to_tok = _id_to_token(Vocab.load(batter_vocab_path))
 
     desc_id_to_tok: list[str] | None = None
     if "vocab_paths" in meta and isinstance(meta["vocab_paths"], dict) and "description" in meta["vocab_paths"]:
@@ -682,7 +690,17 @@ def simulate(
                             "pitch_number": int(row["pitch_number"]),
                             "mode": str(mode),
                             "pitcher_id": int(row["pitcher_id"]),
+                            **(
+                                {"pitcher": _tok(pitcher_id_to_tok, int(row["pitcher_id"]))}
+                                if pitcher_id_to_tok is not None
+                                else {}
+                            ),
                             "batter_id": int(row["batter_id"]),
+                            **(
+                                {"batter": _tok(batter_id_to_tok, int(row["batter_id"]))}
+                                if batter_id_to_tok is not None
+                                else {}
+                            ),
                             "stand_id": int(row["stand_id"]),
                             "p_throws_id": int(row["p_throws_id"]),
                             "state": sim_state,
