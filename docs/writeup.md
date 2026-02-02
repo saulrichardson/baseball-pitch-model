@@ -122,7 +122,7 @@ Open-loop rollouts on 50 held-out games (same model) show the expected drop from
 
 To reproduce on Greene:
 ```bash
-export BASEBALL_ARTIFACT_ROOT=\"$VAST/baseball_pitch_model_desc_full2023\"
+export BASEBALL_ARTIFACT_ROOT="$VAST/baseball_pitch_model_desc_full2023"
 python -m baseball report --run-id final_state_mt_4665878 --split valid
 python -m baseball simulate --run-id final_state_mt_4665878 --split valid --mode rollout --count-mode clamp --max-games 50 --device cuda
 ```
@@ -132,3 +132,4 @@ python -m baseball simulate --run-id final_state_mt_4665878 --split valid --mode
 - The simulation does not model lineup/substitution decisions; it conditions on the real pitcher/batter IDs per pitch.
 - Open-loop drift remains a major challenge; the repo measures it and includes stabilizers, but fully closing the gap is ongoing work.
 - Batter clustering is currently a coarse proxy for “batter type”; richer batter representations (player-season embeddings, swing profiles, etc.) are natural next steps.
+

@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="420" viewBox="0 0 1100 420">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0.18"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 22px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #0f172a; }
+      .sub   { font: 500 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #334155; }
+      .lbl   { font: 600 13px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #0f172a; }
+      .txt   { font: 500 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #334155; }
+      .mono  { font: 600 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New"; fill: #0f172a; }
+      .box   { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; rx: 14; }
+      .chip  { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1.0; rx: 10; }
+      .arrow { stroke: #64748b; stroke-width: 1.6; fill: none; marker-end: url(#m); }
+      .soft  { fill: url(#g); stroke: #cbd5e1; stroke-width: 1.2; rx: 18; }
+      .kpi   { font: 700 16px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; fill: #0f172a; }
+    </style>
+    <marker id="m" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L9,3 L0,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect x="16" y="16" width="1068" height="388" class="soft"/>
+
+  <text x="42" y="56" class="title">Pitch Type + Location Modeling</text>
+  <text x="42" y="82" class="sub">Transformer policy model over within-AB history + game context (Statcast)</text>
+
+  <!-- Left: inputs -->
+  <rect x="42" y="118" width="300" height="250" class="box"/>
+  <text x="64" y="150" class="lbl">Inputs</text>
+
+  <rect x="64" y="168" width="260" height="36" class="chip"/>
+  <text x="78" y="190" class="txt">Pre-pitch context (count / outs / runners / score)</text>
+
+  <rect x="64" y="214" width="260" height="36" class="chip"/>
+  <text x="78" y="236" class="txt">Who (pitcher, batter, handedness/stance)</text>
+
+  <rect x="64" y="260" width="260" height="36" class="chip"/>
+  <text x="78" y="282" class="txt">Within-PA history (types + locations + outcomes)</text>
+
+  <rect x="64" y="308" width="260" height="42" class="chip"/>
+  <text x="78" y="332" class="mono">hist_pitch_type_id_*</text>
+
+  <!-- Center: model -->
+  <rect x="386" y="118" width="328" height="250" class="box"/>
+  <text x="408" y="150" class="lbl">Model</text>
+  <text x="408" y="172" class="txt">Transformer encoder over pitch sequence</text>
+
+  <rect x="408" y="196" width="284" height="48" class="chip"/>
+  <text x="424" y="224" class="txt">Sequence representation</text>
+
+  <rect x="408" y="256" width="284" height="98" class="chip"/>
+  <text x="424" y="282" class="txt">Heads</text>
+  <text x="424" y="306" class="txt">• pitch type logits</text>
+  <text x="424" y="328" class="txt">• location density (MDN)</text>
+  <text x="424" y="350" class="txt">• optional state + outcome heads</text>
+
+  <!-- Right: outputs -->
+  <rect x="760" y="118" width="300" height="250" class="box"/>
+  <text x="782" y="150" class="lbl">Outputs</text>
+
+  <rect x="782" y="168" width="260" height="64" class="chip"/>
+  <text x="796" y="192" class="txt">Pitch type distribution</text>
+  <text x="796" y="214" class="mono">P(type | context, history)</text>
+
+  <rect x="782" y="242" width="260" height="108" class="chip"/>
+  <text x="796" y="266" class="txt">Pitch location density</text>
+  <text x="796" y="288" class="mono">p(x,z | context, history)</text>
+
+  <!-- Simple “strike zone” mini-visual -->
+  <rect x="950" y="270" width="70" height="70" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2"/>
+  <ellipse cx="980" cy="302" rx="12" ry="8" fill="#0ea5e9" fill-opacity="0.35" stroke="#0ea5e9" stroke-width="1.2"/>
+  <ellipse cx="992" cy="324" rx="10" ry="6" fill="#a855f7" fill-opacity="0.28" stroke="#a855f7" stroke-width="1.2"/>
+
+  <!-- Arrows -->
+  <path d="M342 244 L386 244" class="arrow"/>
+  <path d="M714 244 L760 244" class="arrow"/>
+
+  <!-- Bottom callouts -->
+  <text x="42" y="398" class="sub">Also included: calibration + slice reports, open-loop rollouts, and pitcher policy profiling.</text>
+</svg>
+
