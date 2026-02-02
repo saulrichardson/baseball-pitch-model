@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "baseball-pitch-model"
+version = "0.1.0"
+description = "Predict pitch type and location from Statcast context + pitch sequences."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "pyarrow>=15",
+  "polars>=0.20",
+  "scikit-learn>=1.4",
+  "torch>=2.2",
+  "tqdm>=4.66",
+  "pybaseball>=2.2.7",
+  "pydantic>=2.6",
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
