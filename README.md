@@ -1,16 +1,29 @@
 # Baseball Pitch Model
 
-Transformer-first modeling of **what pitch gets thrown next**:
+Transformer-first modeling of **what pitch gets thrown next**.
 
-- **Pitch type** (classification)
-- **Pitch location** (probabilistic density via a 2D mixture model)
+At each pitch, the model predicts:
+- **Pitch type** as a probability distribution (classification)
+- **Pitch location** as a probability density over the batter box (probabilistic regression via a 2D mixture model)
 
-Conditioned on:
-- within-AB pitch history (types + locations, optionally outcomes),
-- pre-pitch game state (count / outs / runners / score / inning),
+Those predictions are conditioned on:
+- within‑AB pitch history (types + locations, optionally outcomes),
+- pre‑pitch game state (count / outs / runners / score / inning),
 - pitcher/batter identity + handedness/stance.
 
 ![Overview diagram](docs/assets/overview.svg)
+
+## A quick tour (what’s in the repo)
+
+This repo is structured around the idea that “pitch prediction” is a **policy modeling** problem:
+you want a model you can *interrogate* (not just a single accuracy number).
+
+You can:
+- train transformer models on large Statcast datasets (streaming parquet; GPU-friendly),
+- generate writeup-ready reports (calibration + slice metrics + strong empirical baselines),
+- run open‑loop rollouts on held‑out games to measure drift,
+- build pitcher “policy tables” (what a pitcher throws next by count/situation),
+- export bundles + serve predictions via FastAPI.
 
 ## What’s unique here
 
@@ -51,15 +64,19 @@ Open-loop rollouts (50 held-out games) predictably drop due to drift:
 | rollout (heads) | 0.402 | 0.830 |
 | rollout (clamp count) | 0.403 | 0.835 |
 
-## Pitcher profile example (granular)
+## Pitcher profile example (the “policy view”)
 
 Example pitcher: **Gerrit Cole** (MLBAM `543037`).
 
-Count-policy heatmap (top pitch by count; predicted vs empirical):
+Count-policy heatmap: for each count (balls × strikes), show the **top pitch type** and its probability.
+- left = model prediction
+- right = empirical distribution from the dataset
 
 ![Gerrit Cole count policy](docs/assets/profile_543037_count_policy.svg)
 
-Zone heatmaps for two pitch types (FF + SL; predicted vs empirical):
+Zone heatmaps: batter‑box location density for specific pitch types (here: FF + SL).
+- left = predicted location density
+- right = empirical location density
 
 ![Gerrit Cole zone heatmaps](docs/assets/profile_543037_zone_heatmaps.svg)
 
@@ -68,4 +85,5 @@ Zone heatmaps for two pitch types (FF + SL; predicted vs empirical):
 - Start here: `docs/README.md`
 - Setup: `docs/setup.md`
 - Greene workflows: `docs/workflows-greene.md`
+- Visual generation: `docs/visuals.md`
 - Narrative writeup: `docs/writeup.md`
