@@ -12,7 +12,7 @@ From the repo root:
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install -e ".[dev]"
+python -m pip install -e .
 ```
 
 ## Configure artifact root
@@ -95,10 +95,3 @@ python -m baseball simulate --run-id <RUN_ID> --split valid --mode rollout --cou
 python -m baseball export --run-id <RUN_ID>
 python -m baseball serve --host 0.0.0.0 --port 8000
 ```
-
-## Tests
-
-```bash
-pytest -q
-```
-

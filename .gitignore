@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .venv/
@@ -11,4 +10,3 @@ venv/
 # Local / cluster artifacts (data, models, runs)
 artifacts/
 tmp/
-

@@ -21,9 +21,6 @@ dependencies = [
   "uvicorn>=0.27",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=8.0"]
-
 [tool.setuptools]
 package-dir = {"" = "src"}
 
