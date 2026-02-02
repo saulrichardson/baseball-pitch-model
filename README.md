@@ -15,7 +15,7 @@ On Greene:
 
 ```bash
 cd /vast/$USER
-git clone <this repo> baseball
+git clone git@github.com:saulrichardson/baseball-pitch-model.git baseball
 cd baseball
 
 module load anaconda3/2024.02
