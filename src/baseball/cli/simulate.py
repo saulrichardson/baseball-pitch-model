@@ -28,6 +28,17 @@ def add_simulate_parser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--game-pk", type=int, action="append", default=None, help="Restrict to a specific game_pk (can repeat).")
     p.add_argument("--max-games", type=int, default=5, help="If --game-pk not provided, simulate up to N games.")
     p.add_argument("--device", type=str, default="auto", help="auto|cpu|cuda")
+    p.add_argument(
+        "--events-out",
+        type=str,
+        default="",
+        help=(
+            "Optional JSONL path to write pitch-by-pitch replay/rollout events. "
+            "Use with --game-pk for a single-game trace."
+        ),
+    )
+    p.add_argument("--events-topk", type=int, default=5, help="Top-K pitch types to include per pitch in events JSONL.")
+    p.add_argument("--events-max", type=int, default=0, help="Max events to write (0 = unlimited).")
     p.add_argument("--out", type=str, default="-", help="Output JSON path (default: stdout).")
     p.set_defaults(func=cmd_simulate)
 
@@ -44,5 +55,8 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         game_pks=args.game_pk,
         max_games=args.max_games,
         device=args.device,
+        events_out=(str(args.events_out) if str(args.events_out).strip() else None),
+        events_topk=int(args.events_topk),
+        events_max=int(args.events_max),
     )
     write_json(args.out, payload)

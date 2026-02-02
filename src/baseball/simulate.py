@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from baseball.config import Paths
 from baseball.data.vocab import Vocab
 from baseball.training.io import load_prepared
-from baseball.training.mdn import mdn_mean
+from baseball.training.mdn import mdn_mean, mdn_nll
 from baseball.training.models import ModelConfig, TransformerMDNState, TransformerMDNStateMT
 from baseball.training.runs import resolve_run_dir
 
@@ -325,6 +325,9 @@ def simulate(
     game_pks: list[int] | None,
     max_games: int,
     device: str | None,
+    events_out: str | None = None,
+    events_topk: int = 5,
+    events_max: int = 0,
 ) -> dict[str, Any]:
     """
     Simulate / replay held-out games.
@@ -346,6 +349,26 @@ def simulate(
     prepared = load_prepared(paths.data_prepared)
     meta = prepared.meta
     norms = _load_norms(meta)
+
+    events_path: Path | None = None
+    events_fp = None
+    events_written = 0
+
+    if events_out is not None and str(events_out).strip():
+        if str(events_out).strip() == "-":
+            raise SimulationError("--events-out must be a file path (not '-') to avoid mixing with summary JSON.")
+        events_path = Path(str(events_out))
+        events_path.parent.mkdir(parents=True, exist_ok=True)
+        events_fp = events_path.open("w", encoding="utf-8")
+
+    pitch_id_to_tok: list[str] | None = None
+    if events_fp is not None:
+        pitch_vocab_path = prepared.vocabs_dir / "pitch_type.json"
+        if not pitch_vocab_path.exists():
+            raise SimulationError(f"--events-out requires pitch type vocab at: {pitch_vocab_path}")
+        pitch_vocab = Vocab.load(pitch_vocab_path)
+        pitch_id_to_tok = _id_to_token(pitch_vocab)
+
     desc_id_to_tok: list[str] | None = None
     if "vocab_paths" in meta and isinstance(meta["vocab_paths"], dict) and "description" in meta["vocab_paths"]:
         vocab_paths = meta["vocab_paths"]
@@ -428,286 +451,398 @@ def simulate(
         "constrained_desc_override_n": 0,
     }
 
-    for game_pk in game_pks:
-        df = _load_game(split_path, game_pk=game_pk)
+    def _tok(id_to_tok: list[str] | None, idx: int) -> str:
+        if id_to_tok is None:
+            return str(idx)
+        if 0 <= int(idx) < len(id_to_tok):
+            return str(id_to_tok[int(idx)])
+        return "<OOV>"
 
-        # Simulated state (raw units).
-        sim = {
-            "inning": int(df[0, "inning"]),
-            "outs_when_up": int(df[0, "outs_when_up"]),
-            "balls": int(df[0, "balls"]),
-            "strikes": int(df[0, "strikes"]),
-            "score_diff": int(df[0, "score_diff"]),
-            "on_1b_occ": int(df[0, "on_1b_occ"]),
-            "on_2b_occ": int(df[0, "on_2b_occ"]),
-            "on_3b_occ": int(df[0, "on_3b_occ"]),
-            "inning_topbot_id": int(df[0, "inning_topbot_id"]),
-            "pitch_number": int(df[0, "pitch_number"]),
-        }
+    try:
+        for game_pk in game_pks:
+            df = _load_game(split_path, game_pk=game_pk)
 
-        # Rolling history in normalized coords (most recent last).
-        hist_type: list[int] = []
-        hist_desc: list[int] = []
-        hist_x: list[float] = []
-        hist_z: list[float] = []
-
-        for row in df.iter_rows(named=True):
-            if mode == "rollout":
-                curr_total += 1
-
-                def _curr(name: str, actual_key: str) -> None:
-                    if int(sim[name]) == int(row[actual_key]):
-                        curr_match[name] = curr_match.get(name, 0) + 1
-
-                _curr("inning", "inning")
-                _curr("outs_when_up", "outs_when_up")
-                _curr("balls", "balls")
-                _curr("strikes", "strikes")
-                _curr("pitch_number", "pitch_number")
-                _curr("score_diff", "score_diff")
-                _curr("on_1b_occ", "on_1b_occ")
-                _curr("on_2b_occ", "on_2b_occ")
-                _curr("on_3b_occ", "on_3b_occ")
-                _curr("inning_topbot_id", "inning_topbot_id")
-
-            # Current pitch context is either teacher-forced (replay) or simulated (rollout).
-            if mode == "replay":
-                sim["inning"] = int(row["inning"])
-                sim["outs_when_up"] = int(row["outs_when_up"])
-                sim["balls"] = int(row["balls"])
-                sim["strikes"] = int(row["strikes"])
-                sim["score_diff"] = int(row["score_diff"])
-                sim["on_1b_occ"] = int(row["on_1b_occ"])
-                sim["on_2b_occ"] = int(row["on_2b_occ"])
-                sim["on_3b_occ"] = int(row["on_3b_occ"])
-                sim["inning_topbot_id"] = int(row["inning_topbot_id"])
-                sim["pitch_number"] = int(row["pitch_number"])
-
-                # Use the *real* within-PA history by reconstructing from the sequence so far.
-                # (We intentionally do not read prepared hist_* columns here.)
-                if int(row["pitch_number"]) == 1:
-                    hist_type = []
-                    hist_desc = []
-                    hist_x = []
-                    hist_z = []
-
-            # Build x_cat from prepared ids (we are not simulating lineup decisions yet).
-            x_cat = torch.tensor(
-                [[int(row["pitcher_id"]), int(row["batter_id"]), int(row["stand_id"]), int(row["p_throws_id"])]],
-                dtype=torch.long,
-                device=dev,
-            )
-
-            cont_features: list[str] = list(meta["cont_features"])
-            cont_map = {
-                "inning": float(sim["inning"]),
-                "outs_when_up": float(sim["outs_when_up"]),
-                "balls": float(sim["balls"]),
-                "strikes": float(sim["strikes"]),
-                "pitch_number": float(sim["pitch_number"]),
-                "score_diff": float(sim["score_diff"]),
-                "on_1b_occ": float(sim["on_1b_occ"]),
-                "on_2b_occ": float(sim["on_2b_occ"]),
-                "on_3b_occ": float(sim["on_3b_occ"]),
-                "inning_topbot_id": float(sim["inning_topbot_id"]),
-            }
-            x_cont = []
-            for name in cont_features:
-                if name not in cont_map:
-                    raise SimulationError(f"Missing cont feature in simulate(): {name}")
-                n = norms[name]
-                x_cont.append(n.norm(cont_map[name]))
-            x_cont_t = torch.tensor([x_cont], dtype=torch.float32, device=dev)
-
-            # Left-pad history to fixed length.
-            L = int(meta["history_len"])
-            ht = hist_type[-L:]
-            hd = hist_desc[-L:]
-            hx = hist_x[-L:]
-            hz = hist_z[-L:]
-            pad = L - len(ht)
-            if pad > 0:
-                ht = ([0] * pad) + ht
-                hd = ([0] * pad) + hd
-                hx = ([0.0] * pad) + hx
-                hz = ([0.0] * pad) + hz
-
-            batch = {
-                "x_cat": x_cat,
-                "x_cont": x_cont_t,
-                "hist_type": torch.tensor([ht], dtype=torch.long, device=dev),
-                **(
-                    {"hist_desc": torch.tensor([hd], dtype=torch.long, device=dev)}
-                    if int(getattr(cfg, "n_descriptions", 0)) > 0
-                    else {}
-                ),
-                "hist_x": torch.tensor([hx], dtype=torch.float32, device=dev),
-                "hist_z": torch.tensor([hz], dtype=torch.float32, device=dev),
+            # Simulated state (raw units).
+            sim = {
+                "inning": int(df[0, "inning"]),
+                "outs_when_up": int(df[0, "outs_when_up"]),
+                "balls": int(df[0, "balls"]),
+                "strikes": int(df[0, "strikes"]),
+                "score_diff": int(df[0, "score_diff"]),
+                "on_1b_occ": int(df[0, "on_1b_occ"]),
+                "on_2b_occ": int(df[0, "on_2b_occ"]),
+                "on_3b_occ": int(df[0, "on_3b_occ"]),
+                "inning_topbot_id": int(df[0, "inning_topbot_id"]),
+                "pitch_number": int(df[0, "pitch_number"]),
             }
 
-            with torch.no_grad():
-                out = model(batch)
-                type_logits = out["type_logits"].squeeze(0)
-                y_type = torch.tensor(int(row["pitch_type_id"]), dtype=torch.long, device=dev)
-                pred_type = int(type_logits.argmax(dim=-1).item())
+            # Rolling history in normalized coords (most recent last).
+            hist_type: list[int] = []
+            hist_desc: list[int] = []
+            hist_x: list[float] = []
+            hist_z: list[float] = []
 
-                type_acc = float((pred_type == int(row["pitch_type_id"])))
-                type_top3 = _torch_topk_acc(type_logits.unsqueeze(0), y_type.unsqueeze(0), k=3)
+            for row in df.iter_rows(named=True):
+                if mode == "rollout":
+                    curr_total += 1
 
-                desc_logits = out.get("desc_logits")
-                pred_desc_argmax = 0
-                pred_desc = 0
-                if desc_logits is not None:
-                    desc_logits = desc_logits.squeeze(0)
-                    pred_desc_argmax = int(desc_logits.argmax(dim=-1).item())
-                    pred_desc = pred_desc_argmax
-                    if "description_id" in row:
-                        y_desc = torch.tensor(int(row.get("description_id", 0) or 0), dtype=torch.long, device=dev)
-                        sum_desc_acc += float(pred_desc_argmax == int(y_desc.item()))
-                        sum_desc_top3 += _torch_topk_acc(desc_logits.unsqueeze(0), y_desc.unsqueeze(0), k=3)
-                        desc_total += 1
+                    def _curr(name: str, actual_key: str) -> None:
+                        if int(sim[name]) == int(row[actual_key]):
+                            curr_match[name] = curr_match.get(name, 0) + 1
 
-                loc_norm = mdn_mean(out["mdn_logit_pi"], out["mdn_mu"]).squeeze(0)
-                pred_x_ft = norms["plate_x"].denorm(float(loc_norm[0].item()))
-                pred_z_ft = norms["plate_z"].denorm(float(loc_norm[1].item()))
-                dx = pred_x_ft - float(row["plate_x"])
-                dz = pred_z_ft - float(row["plate_z"])
-                loc_mse = 0.5 * (dx * dx + dz * dz)
+                    _curr("inning", "inning")
+                    _curr("outs_when_up", "outs_when_up")
+                    _curr("balls", "balls")
+                    _curr("strikes", "strikes")
+                    _curr("pitch_number", "pitch_number")
+                    _curr("score_diff", "score_diff")
+                    _curr("on_1b_occ", "on_1b_occ")
+                    _curr("on_2b_occ", "on_2b_occ")
+                    _curr("on_3b_occ", "on_3b_occ")
+                    _curr("inning_topbot_id", "inning_topbot_id")
 
-                # Next-state predictions (argmax per head).
-                pa_end_logits = out["pa_end_logits"].squeeze(0)
-                next_balls_logits = out["next_balls_logits"].squeeze(0)
-                next_strikes_logits = out["next_strikes_logits"].squeeze(0)
-                pa_end = int(pa_end_logits.argmax(dim=-1).item())
-                next_balls = int(next_balls_logits.argmax(dim=-1).item())
-                next_strikes = int(next_strikes_logits.argmax(dim=-1).item())
-                next_outs = int(out["next_outs_when_up_logits"].argmax(dim=-1).item())
-                next_on_1b = int(out["next_on_1b_logits"].argmax(dim=-1).item())
-                next_on_2b = int(out["next_on_2b_logits"].argmax(dim=-1).item())
-                next_on_3b = int(out["next_on_3b_logits"].argmax(dim=-1).item())
-                next_topbot = int(out["next_inning_topbot_logits"].argmax(dim=-1).item())
-                inning_delta = int(out["inning_delta_logits"].argmax(dim=-1).item())
-                score_delta_id = int(out["score_diff_delta_logits"].argmax(dim=-1).item())
-
-            total_pitches += 1
-            sum_type_acc += type_acc
-            sum_type_top3 += type_top3
-            sum_loc_mse_ft += float(loc_mse)
-
-            if int(row["y_has_next"]) == 1:
-                # Next-state accuracy is only meaningful in replay mode (teacher-forced).
+                # Current pitch context is either teacher-forced (replay) or simulated (rollout).
                 if mode == "replay":
-                    state_total += 1
+                    sim["inning"] = int(row["inning"])
+                    sim["outs_when_up"] = int(row["outs_when_up"])
+                    sim["balls"] = int(row["balls"])
+                    sim["strikes"] = int(row["strikes"])
+                    sim["score_diff"] = int(row["score_diff"])
+                    sim["on_1b_occ"] = int(row["on_1b_occ"])
+                    sim["on_2b_occ"] = int(row["on_2b_occ"])
+                    sim["on_3b_occ"] = int(row["on_3b_occ"])
+                    sim["inning_topbot_id"] = int(row["inning_topbot_id"])
+                    sim["pitch_number"] = int(row["pitch_number"])
 
-                def _count(name: str, pred: int, y_key: str) -> None:
-                    yv = int(row[y_key])
-                    if pred == yv:
-                        state_correct[name] = state_correct.get(name, 0) + 1
+                    # Use the *real* within-PA history by reconstructing from the sequence so far.
+                    # (We intentionally do not read prepared hist_* columns here.)
+                    if int(row["pitch_number"]) == 1:
+                        hist_type = []
+                        hist_desc = []
+                        hist_x = []
+                        hist_z = []
 
-                if mode == "replay":
-                    _count("pa_end", pa_end, "y_pa_end")
-                    _count("next_balls", next_balls, "y_next_balls")
-                    _count("next_strikes", next_strikes, "y_next_strikes")
-                    _count("next_outs_when_up", next_outs, "y_next_outs_when_up")
-                    _count("next_on_1b", next_on_1b, "y_next_on_1b_occ")
-                    _count("next_on_2b", next_on_2b, "y_next_on_2b_occ")
-                    _count("next_on_3b", next_on_3b, "y_next_on_3b_occ")
-                    _count("next_inning_topbot", next_topbot, "y_next_inning_topbot_id")
-                    _count("inning_delta", inning_delta, "y_inning_delta")
-                    _count("score_diff_delta", score_delta_id, "y_score_diff_delta_id")
+                # Build x_cat from prepared ids (we are not simulating lineup decisions yet).
+                x_cat = torch.tensor(
+                    [[int(row["pitcher_id"]), int(row["batter_id"]), int(row["stand_id"]), int(row["p_throws_id"])]],
+                    dtype=torch.long,
+                    device=dev,
+                )
 
-            # Roll forward state/history (only in rollout mode; replay mode overwrites from data).
-            if mode == "rollout":
-                if count_mode == "clamp":
-                    # Always trust pa_end, but decode counts with simple constraints.
-                    if pa_end == 1:
-                        next_balls = 0
-                        next_strikes = 0
+                cont_features: list[str] = list(meta["cont_features"])
+                cont_map = {
+                    "inning": float(sim["inning"]),
+                    "outs_when_up": float(sim["outs_when_up"]),
+                    "balls": float(sim["balls"]),
+                    "strikes": float(sim["strikes"]),
+                    "pitch_number": float(sim["pitch_number"]),
+                    "score_diff": float(sim["score_diff"]),
+                    "on_1b_occ": float(sim["on_1b_occ"]),
+                    "on_2b_occ": float(sim["on_2b_occ"]),
+                    "on_3b_occ": float(sim["on_3b_occ"]),
+                    "inning_topbot_id": float(sim["inning_topbot_id"]),
+                }
+                x_cont = []
+                for name in cont_features:
+                    if name not in cont_map:
+                        raise SimulationError(f"Missing cont feature in simulate(): {name}")
+                    n = norms[name]
+                    x_cont.append(n.norm(cont_map[name]))
+                x_cont_t = torch.tensor([x_cont], dtype=torch.float32, device=dev)
+
+                # Left-pad history to fixed length.
+                L = int(meta["history_len"])
+                ht = hist_type[-L:]
+                hd = hist_desc[-L:]
+                hx = hist_x[-L:]
+                hz = hist_z[-L:]
+                pad = L - len(ht)
+                if pad > 0:
+                    ht = ([0] * pad) + ht
+                    hd = ([0] * pad) + hd
+                    hx = ([0.0] * pad) + hx
+                    hz = ([0.0] * pad) + hz
+
+                batch = {
+                    "x_cat": x_cat,
+                    "x_cont": x_cont_t,
+                    "hist_type": torch.tensor([ht], dtype=torch.long, device=dev),
+                    **(
+                        {"hist_desc": torch.tensor([hd], dtype=torch.long, device=dev)}
+                        if int(getattr(cfg, "n_descriptions", 0)) > 0
+                        else {}
+                    ),
+                    "hist_x": torch.tensor([hx], dtype=torch.float32, device=dev),
+                    "hist_z": torch.tensor([hz], dtype=torch.float32, device=dev),
+                }
+
+                with torch.no_grad():
+                    out = model(batch)
+                    type_logits = out["type_logits"].squeeze(0)
+                    y_type = torch.tensor(int(row["pitch_type_id"]), dtype=torch.long, device=dev)
+                    pred_type = int(type_logits.argmax(dim=-1).item())
+
+                    type_acc = float((pred_type == int(row["pitch_type_id"])))
+                    type_top3 = _torch_topk_acc(type_logits.unsqueeze(0), y_type.unsqueeze(0), k=3)
+
+                    desc_logits = out.get("desc_logits")
+                    pred_desc_argmax = 0
+                    pred_desc = 0
+                    if desc_logits is not None:
+                        desc_logits = desc_logits.squeeze(0)
+                        pred_desc_argmax = int(desc_logits.argmax(dim=-1).item())
+                        pred_desc = pred_desc_argmax
+                        if "description_id" in row:
+                            y_desc = torch.tensor(int(row.get("description_id", 0) or 0), dtype=torch.long, device=dev)
+                            sum_desc_acc += float(pred_desc_argmax == int(y_desc.item()))
+                            sum_desc_top3 += _torch_topk_acc(desc_logits.unsqueeze(0), y_desc.unsqueeze(0), k=3)
+                            desc_total += 1
+
+                    loc_norm = mdn_mean(out["mdn_logit_pi"], out["mdn_mu"]).squeeze(0)
+                    pred_x_ft = norms["plate_x"].denorm(float(loc_norm[0].item()))
+                    pred_z_ft = norms["plate_z"].denorm(float(loc_norm[1].item()))
+                    dx = pred_x_ft - float(row["plate_x"])
+                    dz = pred_z_ft - float(row["plate_z"])
+                    loc_mse = 0.5 * (dx * dx + dz * dz)
+
+                    # Per-pitch location NLL (normalized units) for debugging.
+                    y_loc_norm = torch.tensor(
+                        [[norms["plate_x"].norm(float(row["plate_x"])), norms["plate_z"].norm(float(row["plate_z"]))]],
+                        dtype=torch.float32,
+                        device=dev,
+                    )
+                    loc_nll = float(
+                        mdn_nll(
+                            y_loc_norm,
+                            out["mdn_logit_pi"],
+                            out["mdn_mu"],
+                            out["mdn_log_sx"],
+                            out["mdn_log_sz"],
+                            out["mdn_rho"],
+                        ).item()
+                    )
+
+                    # Next-state predictions (argmax per head).
+                    pa_end_logits = out["pa_end_logits"].squeeze(0)
+                    next_balls_logits = out["next_balls_logits"].squeeze(0)
+                    next_strikes_logits = out["next_strikes_logits"].squeeze(0)
+                    pa_end = int(pa_end_logits.argmax(dim=-1).item())
+                    next_balls = int(next_balls_logits.argmax(dim=-1).item())
+                    next_strikes = int(next_strikes_logits.argmax(dim=-1).item())
+                    next_outs = int(out["next_outs_when_up_logits"].argmax(dim=-1).item())
+                    next_on_1b = int(out["next_on_1b_logits"].argmax(dim=-1).item())
+                    next_on_2b = int(out["next_on_2b_logits"].argmax(dim=-1).item())
+                    next_on_3b = int(out["next_on_3b_logits"].argmax(dim=-1).item())
+                    next_topbot = int(out["next_inning_topbot_logits"].argmax(dim=-1).item())
+                    inning_delta = int(out["inning_delta_logits"].argmax(dim=-1).item())
+                    score_delta_id = int(out["score_diff_delta_logits"].argmax(dim=-1).item())
+
+                # Optional: emit pitch-by-pitch replay / rollout trace (JSONL).
+                if events_fp is not None:
+                    if int(events_max) > 0 and events_written >= int(events_max):
+                        pass
                     else:
-                        nb, ns = _clamped_count_decode(
+                        k = max(1, int(events_topk))
+                        probs = torch.softmax(type_logits, dim=-1)
+                        k = min(k, int(probs.numel()))
+                        top = torch.topk(probs, k=k, dim=-1)
+                        top_items = []
+                        for j in range(k):
+                            tid = int(top.indices[j].item())
+                            top_items.append(
+                                {
+                                    "pitch_type_id": tid,
+                                    "pitch_type": _tok(pitch_id_to_tok, tid),
+                                    "prob": float(top.values[j].item()),
+                                }
+                            )
+
+                        actual_state = {
+                            "inning": int(row["inning"]),
+                            "outs_when_up": int(row["outs_when_up"]),
+                            "balls": int(row["balls"]),
+                            "strikes": int(row["strikes"]),
+                            "pitch_number": int(row["pitch_number"]),
+                            "score_diff": int(row["score_diff"]),
+                            "on_1b_occ": int(row["on_1b_occ"]),
+                            "on_2b_occ": int(row["on_2b_occ"]),
+                            "on_3b_occ": int(row["on_3b_occ"]),
+                            "inning_topbot_id": int(row["inning_topbot_id"]),
+                        }
+                        sim_state = dict(actual_state) if mode == "replay" else dict(sim)
+                        state_match = {}
+                        if mode == "rollout":
+                            for k2, v2 in actual_state.items():
+                                state_match[k2] = int(int(sim_state[k2]) == int(v2))
+
+                        y_desc_id = int(row.get("description_id", 0) or 0) if "description_id" in row else None
+                        rec = {
+                            "game_pk": int(row["game_pk"]),
+                            "at_bat_number": int(row["at_bat_number"]),
+                            "pitch_number": int(row["pitch_number"]),
+                            "mode": str(mode),
+                            "pitcher_id": int(row["pitcher_id"]),
+                            "batter_id": int(row["batter_id"]),
+                            "stand_id": int(row["stand_id"]),
+                            "p_throws_id": int(row["p_throws_id"]),
+                            "state": sim_state,
+                            **({"actual_state": actual_state, "state_match": state_match} if mode == "rollout" else {}),
+                            "y": {
+                                "pitch_type_id": int(row["pitch_type_id"]),
+                                "pitch_type": _tok(pitch_id_to_tok, int(row["pitch_type_id"])),
+                                "plate_x": float(row["plate_x"]),
+                                "plate_z": float(row["plate_z"]),
+                                **(
+                                    {
+                                        "description_id": int(y_desc_id),
+                                        "description": _tok(desc_id_to_tok, int(y_desc_id)),
+                                    }
+                                    if y_desc_id is not None
+                                    else {}
+                                ),
+                            },
+                            "pred": {
+                                "pitch_type_id": int(pred_type),
+                                "pitch_type": _tok(pitch_id_to_tok, int(pred_type)),
+                                "pitch_type_topk": top_items,
+                                "plate_x": float(pred_x_ft),
+                                "plate_z": float(pred_z_ft),
+                                "loc_nll": float(loc_nll),
+                                "pa_end": int(pa_end),
+                                "next_balls": int(next_balls),
+                                "next_strikes": int(next_strikes),
+                            },
+                            "metrics": {
+                                "type_acc": float(type_acc),
+                                "type_top3": float(type_top3),
+                                "loc_se_ft2": float(2.0 * loc_mse),
+                            },
+                        }
+                        events_fp.write(json.dumps(rec, separators=(",", ":")) + "\n")
+                        events_written += 1
+
+                total_pitches += 1
+                sum_type_acc += type_acc
+                sum_type_top3 += type_top3
+                sum_loc_mse_ft += float(loc_mse)
+
+                if int(row["y_has_next"]) == 1:
+                    # Next-state accuracy is only meaningful in replay mode (teacher-forced).
+                    if mode == "replay":
+                        state_total += 1
+
+                    def _count(name: str, pred: int, y_key: str) -> None:
+                        yv = int(row[y_key])
+                        if pred == yv:
+                            state_correct[name] = state_correct.get(name, 0) + 1
+
+                    if mode == "replay":
+                        _count("pa_end", pa_end, "y_pa_end")
+                        _count("next_balls", next_balls, "y_next_balls")
+                        _count("next_strikes", next_strikes, "y_next_strikes")
+                        _count("next_outs_when_up", next_outs, "y_next_outs_when_up")
+                        _count("next_on_1b", next_on_1b, "y_next_on_1b_occ")
+                        _count("next_on_2b", next_on_2b, "y_next_on_2b_occ")
+                        _count("next_on_3b", next_on_3b, "y_next_on_3b_occ")
+                        _count("next_inning_topbot", next_topbot, "y_next_inning_topbot_id")
+                        _count("inning_delta", inning_delta, "y_inning_delta")
+                        _count("score_diff_delta", score_delta_id, "y_score_diff_delta_id")
+
+                # Roll forward state/history (only in rollout mode; replay mode overwrites from data).
+                if mode == "rollout":
+                    if count_mode == "clamp":
+                        # Always trust pa_end, but decode counts with simple constraints.
+                        if pa_end == 1:
+                            next_balls = 0
+                            next_strikes = 0
+                        else:
+                            nb, ns = _clamped_count_decode(
+                                next_balls_logits=next_balls_logits,
+                                next_strikes_logits=next_strikes_logits,
+                                balls=int(sim["balls"]),
+                                strikes=int(sim["strikes"]),
+                            )
+                            next_balls = int(nb)
+                            next_strikes = int(ns)
+                    elif count_mode == "rules":
+                        if desc_logits is None or desc_id_to_tok is None:
+                            raise SimulationError("--count-mode=rules requires a description head + vocab.")
+                        if 0 <= int(pred_desc) < len(desc_id_to_tok):
+                            tok = desc_id_to_tok[int(pred_desc)]
+                            nb, ns, pe, used = _apply_desc_count_rules(
+                                tok, balls=int(sim["balls"]), strikes=int(sim["strikes"])
+                            )
+                            if used:
+                                rollout_count["rules_applied_n"] += 1
+                                next_balls = int(nb)
+                                next_strikes = int(ns)
+                                pa_end = int(pe)
+                    elif count_mode == "constrained":
+                        if desc_logits is None or desc_id_to_tok is None:
+                            raise SimulationError("--count-mode=constrained requires a description head + vocab.")
+                        nb, ns, pe, chosen_desc, used_rules = _constrained_count_decode(
+                            desc_logits=desc_logits,
+                            pa_end_logits=pa_end_logits,
                             next_balls_logits=next_balls_logits,
                             next_strikes_logits=next_strikes_logits,
+                            desc_id_to_tok=desc_id_to_tok,
                             balls=int(sim["balls"]),
                             strikes=int(sim["strikes"]),
                         )
+                        if int(chosen_desc) != int(pred_desc_argmax):
+                            rollout_count["constrained_desc_override_n"] += 1
+                        pred_desc = int(chosen_desc)
                         next_balls = int(nb)
                         next_strikes = int(ns)
-                elif count_mode == "rules":
-                    if desc_logits is None or desc_id_to_tok is None:
-                        raise SimulationError("--count-mode=rules requires a description head + vocab.")
-                    if 0 <= int(pred_desc) < len(desc_id_to_tok):
-                        tok = desc_id_to_tok[int(pred_desc)]
-                        nb, ns, pe, used = _apply_desc_count_rules(
-                            tok, balls=int(sim["balls"]), strikes=int(sim["strikes"])
-                        )
-                        if used:
-                            rollout_count["rules_applied_n"] += 1
-                            next_balls = int(nb)
-                            next_strikes = int(ns)
-                            pa_end = int(pe)
-                elif count_mode == "constrained":
-                    if desc_logits is None or desc_id_to_tok is None:
-                        raise SimulationError("--count-mode=constrained requires a description head + vocab.")
-                    nb, ns, pe, chosen_desc, used_rules = _constrained_count_decode(
-                        desc_logits=desc_logits,
-                        pa_end_logits=pa_end_logits,
-                        next_balls_logits=next_balls_logits,
-                        next_strikes_logits=next_strikes_logits,
-                        desc_id_to_tok=desc_id_to_tok,
-                        balls=int(sim["balls"]),
-                        strikes=int(sim["strikes"]),
-                    )
-                    if int(chosen_desc) != int(pred_desc_argmax):
-                        rollout_count["constrained_desc_override_n"] += 1
-                    pred_desc = int(chosen_desc)
-                    next_balls = int(nb)
-                    next_strikes = int(ns)
-                    pa_end = int(pe)
-                    if used_rules:
-                        rollout_count["constrained_rules_chosen_n"] += 1
+                        pa_end = int(pe)
+                        if used_rules:
+                            rollout_count["constrained_rules_chosen_n"] += 1
+                        else:
+                            rollout_count["constrained_heads_chosen_n"] += 1
+
+                    # Update history first (history is within PA).
+                    if pa_end == 1:
+                        hist_type = []
+                        hist_desc = []
+                        hist_x = []
+                        hist_z = []
+                        sim["pitch_number"] = 1
                     else:
-                        rollout_count["constrained_heads_chosen_n"] += 1
+                        hist_type.append(pred_type)
+                        hist_desc.append(pred_desc)
+                        # Store normalized for model consumption.
+                        hist_x.append(norms["plate_x"].norm(pred_x_ft))
+                        hist_z.append(norms["plate_z"].norm(pred_z_ft))
+                        sim["pitch_number"] = int(sim["pitch_number"]) + 1
 
-                # Update history first (history is within PA).
-                if pa_end == 1:
-                    hist_type = []
-                    hist_desc = []
-                    hist_x = []
-                    hist_z = []
-                    sim["pitch_number"] = 1
-                else:
-                    hist_type.append(pred_type)
-                    hist_desc.append(pred_desc)
-                    # Store normalized for model consumption.
-                    hist_x.append(norms["plate_x"].norm(pred_x_ft))
-                    hist_z.append(norms["plate_z"].norm(pred_z_ft))
-                    sim["pitch_number"] = int(sim["pitch_number"]) + 1
+                    sim["balls"] = next_balls
+                    sim["strikes"] = next_strikes
+                    sim["outs_when_up"] = next_outs
+                    sim["on_1b_occ"] = next_on_1b
+                    sim["on_2b_occ"] = next_on_2b
+                    sim["on_3b_occ"] = next_on_3b
+                    sim["inning_topbot_id"] = next_topbot
+                    sim["inning"] = int(sim["inning"]) + inning_delta
+                    sim["score_diff"] = int(sim["score_diff"]) + (score_delta_id - 4)
 
-                sim["balls"] = next_balls
-                sim["strikes"] = next_strikes
-                sim["outs_when_up"] = next_outs
-                sim["on_1b_occ"] = next_on_1b
-                sim["on_2b_occ"] = next_on_2b
-                sim["on_3b_occ"] = next_on_3b
-                sim["inning_topbot_id"] = next_topbot
-                sim["inning"] = int(sim["inning"]) + inning_delta
-                sim["score_diff"] = int(sim["score_diff"]) + (score_delta_id - 4)
-
-            # Replay history update (teacher-forced) after scoring.
-            if mode == "replay":
-                # Use true previous pitch labels and locations to build history.
-                # Only update history if the next pitch is within the same PA.
-                if int(row["y_pa_end"]) == 1:
-                    hist_type = []
-                    hist_desc = []
-                    hist_x = []
-                    hist_z = []
-                else:
-                    hist_type.append(int(row["pitch_type_id"]))
-                    desc_id = int(row.get("description_id", 0) or 0)
-                    hist_desc.append(desc_id)
-                    hist_x.append(norms["plate_x"].norm(float(row["plate_x"])))
-                    hist_z.append(norms["plate_z"].norm(float(row["plate_z"])))
+                # Replay history update (teacher-forced) after scoring.
+                if mode == "replay":
+                    # Use true previous pitch labels and locations to build history.
+                    # Only update history if the next pitch is within the same PA.
+                    if int(row["y_pa_end"]) == 1:
+                        hist_type = []
+                        hist_desc = []
+                        hist_x = []
+                        hist_z = []
+                    else:
+                        hist_type.append(int(row["pitch_type_id"]))
+                        desc_id = int(row.get("description_id", 0) or 0)
+                        hist_desc.append(desc_id)
+                        hist_x.append(norms["plate_x"].norm(float(row["plate_x"])))
+                        hist_z.append(norms["plate_z"].norm(float(row["plate_z"])))
+    finally:
+        if events_fp is not None:
+            events_fp.close()
 
     # Aggregate summary.
     out: dict[str, Any] = {
@@ -716,6 +851,7 @@ def simulate(
         "split": split,
         "mode": mode,
         **({"rollout_count": rollout_count} if mode == "rollout" else {}),
+        **({"events_out": str(events_path), "events_written": int(events_written)} if events_path is not None else {}),
         "games": len(game_pks),
         "pitches": total_pitches,
         "pitch_type_acc": float(sum_type_acc / max(1, total_pitches)),

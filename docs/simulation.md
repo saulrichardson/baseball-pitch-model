@@ -46,3 +46,22 @@ python -m baseball simulate \
   --device cuda
 ```
 
+## Pitch-by-pitch replay / trace
+
+`simulate` can also emit a **pitch-by-pitch JSONL trace** (one JSON object per pitch) containing:
+- the current state used by the model (teacher-forced in `replay`, simulated in `rollout`)
+- the actual pitch type + location
+- the model’s top‑K pitch type probabilities
+- the model’s predicted location mean + per-pitch location NLL
+
+Example: replay a single game and write a trace:
+
+```bash
+python -m baseball simulate \
+  --run-id <RUN_ID> \
+  --split valid \
+  --mode replay \
+  --game-pk <GAME_PK> \
+  --events-out /tmp/pitch_trace.jsonl \
+  --events-topk 5
+```
